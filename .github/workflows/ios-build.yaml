@@ -1,45 +1,49 @@
-name: Build iOS App
+name: iOS Test Build
 
 on:
-  workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'development'
-        type: choice
-        options:
-          - development
-          - adhoc
-          - appstore
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 jobs:
-  build-ios:
+  build-ios-simulator:
     runs-on: macos-latest
+    
     steps:
+      # 1. Checkout your code
       - uses: actions/checkout@v4
-
+      
+      # 2. Setup Flutter
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.29.0'
           channel: 'stable'
-          architecture: x64
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build iOS app
+      
+      # 3. Get Flutter dependencies
+      - name: Get Flutter dependencies
         run: |
-          flutter build ios --release --no-codesign
-
-      - name: Create IPA
+          cd patient_portal
+          flutter pub get
+      
+      # 4. Run tests (optional but recommended)
+      - name: Run tests
         run: |
-          mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -r patient_portal.ipa Payload
-
-      - name: Upload IPA
+          cd patient_portal
+          flutter test
+        continue-on-error: true  # Continue even if tests fail
+      
+      # 5. Build for iOS Simulator
+      - name: Build for iOS Simulator
+        run: |
+          cd patient_portal
+          flutter build ios --simulator --release
+      
+      # 6. Upload the build artifact
+      - name: Upload iOS Simulator Build
         uses: actions/upload-artifact@v4
         with:
-          name: patient_portal.ipa
-          path: patient_portal.ipa
+          name: ios-simulator-build
+          path: patient_portal/build/ios/iphonesimulator/Runner.app
+          retention-days: 7
